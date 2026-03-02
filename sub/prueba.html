@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mi PWA Vanilla</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="manifest" href="../manifest.json">
+  <meta name="theme-color" content="#000000">
+
+  <script>
+    // Eliminar el parámetro ?check=... del historial para que la URL quede limpia
+    if (window.location.search.includes('check=')) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+  </script>
+
+</head>
+<body>
+
+  <h1>Mi App sub 🚀</h1>
+  <button id="btn">Probar</button>
+
+  <script src="../app.js"></script>
+</body>
+</html>
