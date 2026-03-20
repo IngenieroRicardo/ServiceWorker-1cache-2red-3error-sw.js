@@ -1,4 +1,6 @@
-const CACHE_NAME = 'mi-pwa-v2'; // Puedes incrementar la versión si deseas
+const CACHE_NAME = 'mi-pwa-v4'; // Puedes incrementar la versión si deseas
+
+let dominioDisponible = true;
 
 // Estos son los recursos que se deben guardar para usarse Offline
 const APP_SHELL = [
@@ -50,7 +52,37 @@ self.addEventListener('fetch', event => {
       // 1. Si está en caché, devolverlo
       if (response) return response;
 
-      // 2. Si no, ir a la red (evitando caché del navegador)
+      // 2. Si el dominio no está disponible, no intentar la red
+      if (!dominioDisponible) {
+        if (event.request.mode === 'navigate') {
+          return new Response(
+            `<!DOCTYPE html>
+            <html lang="es">
+            <head>
+              <meta charset="UTF-8">
+              <title>Sin conexión</title>
+              <style>
+                body { font-family: sans-serif; text-align: center; padding: 2rem; }
+                h1 { color: #b00020; }
+              </style>
+            </head>
+            <body>
+              <h1>🔴 Sin acceso al servidor</h1>
+              <p>No hay conexión a internet ni copia en caché de esta página.</p>
+              <button onclick="window.location.reload()">Reintentar</button>
+            </body>
+            </html>`,
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
+        } else {
+          return new Response('Recurso no disponible (sin salida a internet)', {
+            status: 503,
+            statusText: 'Service Unavailable'
+          });
+        }
+      }
+
+      // 3. Si no, ir a la red (evitando caché del navegador)
       return fetch(new Request(event.request, { cache: 'no-cache' }))
         .then(networkResponse => {
           // Guardar en caché para futuras visitas offline
@@ -60,9 +92,8 @@ self.addEventListener('fetch', event => {
           });
         })
         .catch(() => {
-          // 3. Si la red falla, verificar si es una navegación (página HTML)
+          // 4. Si la red falla, verificar si es una navegación (página HTML)
           if (event.request.mode === 'navigate') {
-            // Devolver una respuesta HTML personalizada
             return new Response(
               `<!DOCTYPE html>
               <html lang="es">
@@ -94,8 +125,14 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// Mensaje unificado: eliminar archivos y activar
+// Mensajes: dominio + actualización PWA
 self.addEventListener('message', event => {
+
+  // Estado del dominio reportado por app.js
+  if (event.data?.type === 'DOMINIO_OFFLINE') { dominioDisponible = false; return; }
+  if (event.data?.type === 'DOMINIO_ONLINE')  { dominioDisponible = true;  return; }
+
+  // Actualización de la PWA
   console.log('SW recibió mensaje:', event.data);
   if (event.data.action === 'actualizarYActivar') {
     const urls = event.data.urls;

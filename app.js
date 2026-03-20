@@ -32,8 +32,6 @@ if ('serviceWorker' in navigator) {
 
 
 
-
-
 function actualizarwebapp() {
   if (!swRegistration || !swRegistration.waiting) return;
 
@@ -56,14 +54,6 @@ function actualizarwebapp() {
     window.location.href = window.location.pathname + '?check=' + Date.now();
   }, 5000);
 }
-
-
-
-
-
-
-
-
 
 
 function mostrarMensajeActualizacion() {
@@ -180,48 +170,62 @@ if (!navigator.onLine) {
 }
 
 
-
-
-
 let dominioDisponible = true;
 
 async function verificarDominio() {
   if (!navigator.onLine) return;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2000);
+
   try {
     await fetch('/sw.js?check=' + Date.now(), {
       method: 'HEAD',
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!dominioDisponible) {
       quitarBannerDominioOffline();
       mostrarBannerDominioOnline();
+
+      // Avisar al SW que el dominio volvió
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'DOMINIO_ONLINE' });
+      }
     }
 
     dominioDisponible = true;
 
     // Forzar comprobación de actualización del Service Worker
     if (swRegistration) {
-      swRegistration.update();
+      try { swRegistration.update(); } catch (_) {}
     }
 
   } catch (e) {
+    clearTimeout(timeoutId);
+    // Ignorar aborts de cierre de página (navigate away), no los nuestros
+    if (e instanceof DOMException && e.name !== 'AbortError') return;
+
     if (dominioDisponible) {
       mostrarBannerDominioOffline();
+
+      // Avisar al SW que el dominio cayó
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'DOMINIO_OFFLINE' });
+      }
     }
     dominioDisponible = false;
   }
 }
 
-// cada 7s verificqmos conexiones y actualizaciones al servidor
-setInterval(verificarDominio, 7000);
+// cada 3s verificamos conexiones y actualizaciones al servidor
+setInterval(verificarDominio, 3000);
 verificarDominio();
 
 function mostrarBannerDominioOffline() {
-
-
-ocultarMensajeActualizacion();
+  ocultarMensajeActualizacion();
   if (document.getElementById("domain-offline")) return;
 
   const div = document.createElement("div");
@@ -275,5 +279,3 @@ function ocultarMensajeActualizacion() {
     const banner = document.getElementById("update-banner");
       if (banner) banner.remove();
 }
-
-
